@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>휘매쓰 연산 챌린지!</title>
+<!-- MathJax for LaTeX rendering -->
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+<style>
+  body {
+    font-family: 'Arial', sans-serif;
+    background: linear-gradient(135deg, #f0f4f7, #d9e7eb);
+    color: #333;
+    margin:0; padding:0;
+  }
+  #container {
+    width: 80%;
+    margin: 0 auto;
+    text-align:center;
+    padding-top:20px;
+  }
+  h1 {
+    color: #0b3d91;
+    font-size:2em;
+    margin-bottom:20px;
+  }
+  .difficulty-select, .game-screen, .game-over {
+    display:none;
+  }
+  .energy-bar-container {
+    width: 300px;
+    height: 20px;
+    background: #eee;
+    margin: 0 auto;
+    border-radius:10px;
+    overflow:hidden;
+    position: relative;
+    margin-bottom:10px;
+  }
+  .energy-bar {
+    height:100%;
+    background:#76c7c0;
+    width:100%;
+    transition: width 0.5s linear;
+  }
+  #problem {
+    font-size:1.2em;
+    margin:20px 0;
+  }
+  .choices {
+    margin-bottom:20px;
+  }
+  .choice-btn {
+    display:inline-block;
+    background:#fff;
+    border:1px solid #ccc;
+    margin:5px;
+    padding:10px 20px;
+    border-radius:5px;
+    cursor:pointer;
+    transition: background 0.3s;
+  }
+  .choice-btn:hover {
+    background:#f7f7f7;
+  }
+  #score, #lives, #global-timer {
+    margin:5px;
+    font-weight:bold;
+  }
+  #start-btn {
+    background:#0b3d91;
+    color:#fff;
+    border:none;
+    padding:10px 20px;
+    font-size:1em;
+    border-radius:5px;
+    cursor:pointer;
+    margin-top:20px;
+  }
+  #start-btn:hover {
+    background:#092c6e;
+  }
+  .popup {
+    position:fixed;
+    top:30%;
+    left:50%;
+    transform:translate(-50%,-50%);
+    background:#fff;
+    border:2px solid #333;
+    padding:20px;
+    border-radius:5px;
+    display:none;
+    z-index:9999;
+  }
+  #popup-msg {
+    margin-bottom:20px;
+  }
+  #popup-close {
+    cursor:pointer;
+    background:#0b3d91;
+    color:#fff;
+    border:none;
+    padding:5px 10px;
+    border-radius:3px;
+  }
+</style>
+</head>
+<body>
+<div id="container">
+  <h1>휘매쓰 연산 챌린지!</h1>
+
+  <!-- 난이도 선택 화면 -->
+  <div class="difficulty-select">
+    <p>난이도를 선택하세요:</p>
+    <button class="difficulty-btn" data-time="20" data-score="20">최상 (시작:20초, 문제당 20점)</button>
+    <button class="difficulty-btn" data-time="30" data-score="15">상 (시작:30초, 문제당 15점)</button>
+    <button class="difficulty-btn" data-time="40" data-score="13">중 (시작:40초, 문제당 13점)</button>
+    <button class="difficulty-btn" data-time="999999" data-score="10">하 (시간 제한 없음, 문제당 10점)</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div class="game-screen">
+    <div>
+      <span id="lives"></span>
+      <span id="score"></span>
+      <span id="global-timer"></span>
+    </div>
+    <div class="energy-bar-container">
+      <div class="energy-bar"></div>
+    </div>
+    <div id="problem"></div>
+    <div class="choices"></div>
+  </div>
+
+  <!-- 게임 종료 화면 -->
+  <div class="game-over">
+    <h2>게임 종료</h2>
+    <p>당신의 점수는 <span id="final-score"></span>점 입니다.</p>
+    <button id="restart-btn">다시 시작</button>
+  </div>
+</div>
+
+<div class="popup" id="popup">
+  <div id="popup-msg"></div>
+  <button id="popup-close">확인</button>
+</div>
+
+<script>
+// gcd 함수
+function gcd(a,b){return b==0?a:gcd(b,a%b);}
+
+// 숫자를 분수로 근사
+function rationalApprox(x){
+  let best_n=1; let best_d=1; let best_err=Math.abs(x-1);
+  for(let d=1; d<=20; d++){
+    let n=Math.round(x*d);
+    let err=Math.abs(x - n/d);
+    if(err<best_err) {best_n=n;best_d=d;best_err=err;}
+  }
+  let g = gcd(Math.abs(best_n),Math.abs(best_d));
+  best_n/=g; best_d/=g;
+  if(best_d===1) return best_n.toString();
+  return best_n+"/"+best_d;
+}
+
+function fractionToNumber(frac){
+  if(frac.indexOf('/')>-1){
+    let parts = frac.split('/');
+    let numerator = parseInt(parts[0]);
+    let denominator = parseInt(parts[1]);
+    return numerator/denominator;
+  } else {
+    return parseFloat(frac);
+  }
+}
+
+function numberToFractionString(num){
+  if(Number.isInteger(num)) return num.toString();
+  return rationalApprox(num);
+}
+
+function numberToLatexFraction(str){
+  if(str.indexOf('/')===-1) {
+    return str; 
+  }
+  let negative = (str[0]==='-');
+  if(negative) str=str.substring(1);
+  let parts = str.split('/');
+  let n = parts[0];
+  let d = parts[1];
+  let latex = "\\frac{"+n+"}{"+d+"}";
+  if(negative) latex = "-"+latex;
+  return latex;
+}
+
+function randomCloseValue(valStr){
+  let val = fractionToNumber(valStr);
+  let offset = Math.floor(Math.random()*7)-3;
+  if(offset===0) offset=1;
+  let newVal = val + offset;
+  return numberToFractionString(newVal);
+}
+
+// 모든 해가 있는 문제 (답이 없는 문제 제외) 나열
+// 문제 번호와 해는 이전에 검증된 것들만 넣음
+
+let problems = [
+  {num:1, eqn:"\\begin{cases}2x + 5(y+1)=2 \\\\ 3(x-2y)+y=8\\end{cases}", solution:{x:"1",y:"-1"}},
+  {num:2, eqn:"\\begin{cases}2x + 3y=5 \\\\ 2(x+y)=3\\end{cases}", solution:{x:"-1/2",y:"2"}},
+  {num:3, eqn:"\\begin{cases}3(x-1)+y=6 \\\\ 3x+2y=3\\end{cases}", solution:{x:"5",y:"-6"}},
+  {num:4, eqn:"\\begin{cases}3x - 5(x-2y)=10 \\\\ 2x -7y=-4\\end{cases}", solution:{x:"5",y:"2"}},
+  {num:5, eqn:"\\begin{cases}x+7(y-1)=-12 \\\\ 6(x+y)=2(x-y)\\end{cases}", solution:{x:"2",y:"-1"}},
+  {num:6, eqn:"\\begin{cases}x=4-(1-y) \\\\ x+y=9\\end{cases}", solution:{x:"6",y:"3"}},
+  {num:7, eqn:"\\begin{cases}2(x+2y)-3y=1 \\\\ x-(y+2)=-6\\end{cases}", solution:{x:"-1",y:"3"}},
+  {num:8, eqn:"\\begin{cases}2x -3(y+2)=4 \\\\ 3(x+y)=5(x-y)\\end{cases}", solution:{x:"8",y:"2"}},
+  {num:9, eqn:"\\begin{cases}4(x+y)-3y=-7 \\\\ 3x-2(x+y)=5\\end{cases}", solution:{x:"-1",y:"-3"}},
+  {num:10, eqn:"\\begin{cases}3x+2y=3 \\\\ 5x-2(y-1)=-9\\end{cases}", solution:{x:"-1",y:"3"}},
+  {num:11, eqn:"\\begin{cases}2(2x - y)+3y=-3 \\\\ x-2y=-12\\end{cases}", solution:{x:"-2",y:"5"}},
+  {num:12, eqn:"\\begin{cases}2x - y =14 \\\\ 3(x+y)-2=-2x\\end{cases}", solution:{x:"4",y:"-6"}},
+
+  {num:14, eqn:"\\begin{cases}\\frac{x-2}{3}-\\frac{y+2}{4}=-1 \\\\ 0.3(x+y)-0.2y=0.8\\end{cases}", solution:{x:"2",y:"2"}},
+  {num:15, eqn:"\\begin{cases}\\frac{3}{4}x - \\frac{1}{5}y=\\frac{3}{20} \\\\ \\frac{1}{2}x - y=-\\frac{5}{2}\\end{cases}", solution:{x:"1",y:"3"}},
+  {num:16, eqn:"\\begin{cases}0.2x-0.3y=-0.8 \\\\ 0.3x-0.1y=0.2\\end{cases}", solution:{x:"2",y:"4"}},
+
+  {num:30, eqn:"\\begin{cases}\\frac{1}{3}x + \\frac{4}{9}y=4 \\\\ \\frac{3}{4}x - \\frac{5}{6}y=-2\\end{cases}", solution:{x:"4",y:"6"}},
+  {num:31, eqn:"\\begin{cases}\\frac{1}{2}x+\\frac{5}{3}y=\\frac{1}{6} \\\\ x-\\frac{1}{2}y=-\\frac{7}{2}\\end{cases}", solution:{x:"-3",y:"1"}},
+  {num:32, eqn:"\\begin{cases}\\frac{1}{3}x+\\frac{3}{4}y=-\\frac{1}{12} \\\\ \\frac{1}{6}x+\\frac{3}{5}y=-\\frac{4}{15}\\end{cases}", solution:{x:"2",y:"-1"}},
+  {num:33, eqn:"\\begin{cases}\\frac{3}{5}x-\\frac{1}{4}y=\\frac{9}{20} \\\\ x-\\frac{1}{3}y=1\\end{cases}", solution:{x:"2",y:"3"}},
+  {num:34, eqn:"\\begin{cases}2x+y=3 \\\\ 0.5x+0.3y=0.7\\end{cases}", solution:{x:"2",y:"-1"}},
+
+  {num:35, eqn:"\\begin{cases}\\frac{3}{4}x - \\frac{1}{5}y=\\frac{3}{20} \\\\ \\frac{1}{2}x - y=-\\frac{5}{2}\\end{cases}", solution:{x:"1",y:"3"}},
+  {num:36, eqn:"\\begin{cases}0.2x-0.3y=-0.8 \\\\ 0.3x-0.1y=0.2\\end{cases}", solution:{x:"2",y:"4"}},
+  {num:37, eqn:"\\begin{cases}\\frac{1}{4}x - \\frac{1}{5}y=\\frac{1}{2} \\\\ \\frac{1}{3}x - \\frac{1}{4}y=\\frac{2}{3}\\end{cases}", solution:{x:"2",y:"0"}},
+  {num:38, eqn:"\\begin{cases}\\frac{1}{5}x+\\frac{1}{8}y=\\frac{5}{2} \\\\ \\frac{1}{10}x+\\frac{1}{2}y=3\\end{cases}", solution:{x:"10",y:"4"}},
+  {num:39, eqn:"\\begin{cases}0.2x -0.1y=0.4 \\\\ (2/3)x-(1/2)y=1\\end{cases}", solution:{x:"3",y:"2"}},
+  {num:40, eqn:"\\begin{cases}0.2x+0.3y=0.2 \\\\ 0.02x+0.1y=0.16\\end{cases}", solution:{x:"2",y:"-1/2"}},
+  {num:41, eqn:"\\begin{cases}\\frac{1}{2}x-0.6y=1.3 \\\\ 0.3x+\\frac{1}{5}y=0.5\\end{cases}", solution:{x:"-3",y:"-5"}},
+  {num:42, eqn:"\\begin{cases}\\frac{x-2}{3}-\\frac{y+2}{4}=-1 \\\\ 0.3(x+y)-0.2y=0.8\\end{cases}", solution:{x:"2",y:"2"}},
+  {num:43, eqn:"\\begin{cases}2x+y=3 \\\\ 0.5x+0.3y=0.7\\end{cases}", solution:{x:"2",y:"-1"}},
+  {num:44, eqn:"\\begin{cases}0.3x-0.7y=0.2 \\\\ 0.5x+0.2y=1.7\\end{cases}", solution:{x:"3",y:"1"}},
+  {num:45, eqn:"\\begin{cases}\\frac{1}{5}x+\\frac{3}{10}y=\\frac{1}{5} \\\\ \\frac{1}{50}x+\\frac{1}{10}y=\\frac{4}{25}\\end{cases}", solution:{x:"-2",y:"2"}},
+  {num:46, eqn:"\\begin{cases}\\frac{1}{5}x+\\frac{3}{10}y=\\frac{1}{5} \\\\ \\frac{1}{50}x+\\frac{1}{10}y=\\frac{4}{25}\\end{cases}", solution:{x:"2",y:"-1/2"}},
+  {num:47, eqn:"\\begin{cases}\\frac{1}{2}x - 0.6y=1.3 \\\\ 0.3x+\\frac{1}{5}y=0.5\\end{cases}", solution:{x:"-3",y:"-5"}},
+  {num:48, eqn:"\\begin{cases}2x-3y=1 \\\\ 5x-9y=1\\end{cases}", solution:{x:"2",y:"1"}},
+
+  {num:56, eqn:"\\begin{cases}2x - y=5 \\\\ x+2y=5\\end{cases}", solution:{x:"3",y:"1"}}
+];
+
+
+let globalTimer = 0; 
+let globalInterval;
+let lives = 3;
+let score = 0;
+let difficultyTime = 30; 
+let problemScore = 15;
+let currentTime; 
+let currentProblem;
+let usedProblems = [];
+let unlimitedMode = false;
+
+const diffSelect = document.querySelector('.difficulty-select');
+const gameScreen = document.querySelector('.game-screen');
+const gameOverScreen = document.querySelector('.game-over');
+const finalScoreEl = document.getElementById('final-score');
+const problemEl = document.getElementById('problem');
+const choicesEl = document.querySelector('.choices');
+const livesEl = document.getElementById('lives');
+const scoreEl = document.getElementById('score');
+const globalTimerEl = document.getElementById('global-timer');
+const energyBar = document.querySelector('.energy-bar');
+const popup = document.getElementById('popup');
+const popupMsg = document.getElementById('popup-msg');
+const popupClose = document.getElementById('popup-close');
+
+popupClose.addEventListener('click',()=>{
+  popup.style.display='none';
+});
+
+document.querySelectorAll('.difficulty-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    difficultyTime = parseInt(btn.getAttribute('data-time'));
+    problemScore = parseInt(btn.getAttribute('data-score'));
+    if(difficultyTime > 1000) {
+      unlimitedMode = true;
+    }
+    startGame();
+  });
+});
+
+function startGame() {
+  diffSelect.style.display='none';
+  gameScreen.style.display='block';
+  lives = 3;
+  score = 0;
+  globalTimer = 0;
+  usedProblems = [];
+  updateStatus();
+  if(globalInterval) clearInterval(globalInterval);
+  globalInterval = setInterval(globalTimerTick,1000);
+  nextProblem();
+}
+
+function globalTimerTick(){
+  globalTimer++;
+  updateStatus();
+  if(!unlimitedMode) {
+    currentTime -= 1;
+    updateEnergyBar();
+    if(currentTime <= 0){
+      lives--;
+      if(lives<=0) {
+        endGame();
+      } else {
+        nextProblem();
+      }
+    }
+  }
+}
+
+function updateStatus(){
+  livesEl.textContent = "남은 기회: "+lives;
+  scoreEl.textContent = "점수: "+score;
+  globalTimerEl.textContent = "전체경과시간: "+globalTimer+"초";
+}
+
+function endGame(){
+  clearInterval(globalInterval);
+  gameScreen.style.display='none';
+  gameOverScreen.style.display='block';
+  finalScoreEl.textContent = score;
+}
+
+document.getElementById('restart-btn').addEventListener('click', ()=>{
+  location.reload();
+});
+
+function nextProblem(){
+  if(!unlimitedMode) {
+    currentTime = difficultyTime;
+    updateEnergyBar();
+  }
+
+  let p = pickProblem();
+  currentProblem = p;
+  renderProblem(p);
+}
+
+function pickProblem(){
+  if(usedProblems.length === problems.length){
+    return problems[Math.floor(Math.random()*problems.length)];
+  } else {
+    let remain = problems.filter(pp=> !usedProblems.includes(pp.num));
+    let chosen = remain[Math.floor(Math.random()*remain.length)];
+    usedProblems.push(chosen.num);
+    return chosen;
+  }
+}
+
+function renderProblem(p){
+  problemEl.innerHTML = "\\("+p.eqn+"\\)";
+  MathJax.typesetPromise();
+
+  let correctX = p.solution.x;
+  let correctY = p.solution.y;
+
+  correctX = numberToLatexFraction(correctX);
+  correctY = numberToLatexFraction(correctY);
+  let correctChoice = "("+correctX+","+correctY+")";
+
+  let choices = [];
+  choices.push(correctChoice);
+
+  while(choices.length<4){
+    let rxx = randomCloseValue(p.solution.x);
+    let ryy = randomCloseValue(p.solution.y);
+    rxx = numberToLatexFraction(rxx);
+    ryy = numberToLatexFraction(ryy);
+    let ch = "("+rxx+","+ryy+")";
+    if(ch!==correctChoice && !choices.includes(ch)){
+      choices.push(ch);
+    }
+  }
+
+  shuffle(choices);
+
+  choicesEl.innerHTML = "";
+  choices.forEach(ch=>{
+    let btn = document.createElement('div');
+    btn.className='choice-btn';
+    btn.innerHTML="\\("+ch+"\\)";
+    btn.addEventListener('click',()=>checkAnswer(ch,correctChoice));
+    choicesEl.appendChild(btn);
+  });
+  MathJax.typesetPromise();
+}
+
+function checkAnswer(ch,correct){
+  if(ch===correct) {
+    score += problemScore;
+    updateStatus();
+    rewardChance();
+    nextProblem();
+  } else {
+    lives--;
+    if(lives<=0){
+      showCorrectAnswer(correct);
+      endGame();
+    } else {
+      showCorrectAnswer(correct);
+      nextProblem();
+    }
+  }
+}
+
+function showCorrectAnswer(correct){
+  popupMsg.innerHTML = "오답입니다! 정답: \\("+correct+"\\)";
+  MathJax.typesetPromise().then(()=>{
+    popup.style.display='block';
+  });
+}
+
+function updateEnergyBar(){
+  if(unlimitedMode) {
+    energyBar.style.width = '100%';
+  } else {
+    let perc = (currentTime / difficultyTime)*100;
+    energyBar.style.width=perc+"%";
+  }
+}
+
+function rewardChance(){
+  let r = Math.random();
+  if(r<1/10000){
+    popupMsg.innerHTML="축하합니다! 5000원 상품권 획득!";
+    popup.style.display='block';
+  } else if(r<1/1000){
+    popupMsg.innerHTML="축하합니다! 3000원 상품권 획득!";
+    popup.style.display='block';
+  } else if(r<1/500){
+    popupMsg.innerHTML="축하합니다! 1회 면제권 획득!";
+    popup.style.display='block';
+  }
+}
+
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    let j=Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]]=[arr[j],arr[i]];
+  }
+}
+
+// 초기 화면
+diffSelect.style.display='block';
+
+</script>
+</body>
+</html>
